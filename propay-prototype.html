@@ -127,6 +127,15 @@
             </div>
           </section>
 
+          <section class="mb-6">
+            <h2 class="text-lg font-semibold mb-2">Pagos Colombia</h2>
+            <div class="bg-white shadow-sm rounded p-4 flex flex-wrap gap-3">
+              <button id="co-nequi-btn" class="px-4 py-2 rounded bg-fuchsia-600 text-white text-sm">Pagar con Nequi</button>
+              <button id="co-daviplata-btn" class="px-4 py-2 rounded bg-red-600 text-white text-sm">Pagar con Daviplata</button>
+              <button id="co-pse-btn" class="px-4 py-2 rounded bg-blue-700 text-white text-sm">Pagar con banco (PSE)</button>
+            </div>
+          </section>
+
           <section>
             <h2 class="text-lg font-semibold mb-2">Invoices</h2>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -346,6 +355,80 @@
       }
 
       renderTransactions();
+
+      // --- Colombia payment methods (Nequi, Daviplata, PSE) ---
+      document.getElementById('co-nequi-btn').addEventListener('click', async () => {
+        const phoneNumber = prompt('Número de celular Nequi (10 dígitos):');
+        if (!phoneNumber) return;
+        const customerEmail = prompt('Correo del cliente:');
+        if (!customerEmail) return;
+        try {
+          const resp = await fetch(`${API_BASE}/co/nequi/pay`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ amountInCents: 1000000, customerEmail, phoneNumber })
+          });
+          const data = await resp.json();
+          if (data.error) return flashMessage(data.error, 'error');
+          flashMessage('Aprueba el cobro en tu app Nequi. Estado: ' + data.data.status, 'success');
+        } catch (e) {
+          flashMessage(`Servidor no disponible en ${API_BASE}`, 'error');
+        }
+      });
+
+      document.getElementById('co-daviplata-btn').addEventListener('click', async () => {
+        const docNumber = prompt('Número de cédula:');
+        if (!docNumber) return;
+        const phone = prompt('Número de celular Daviplata:');
+        if (!phone) return;
+        try {
+          const resp = await fetch(`${API_BASE}/co/daviplata/pay`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ amount: 10000, docNumber, phone })
+          });
+          const data = await resp.json();
+          if (data.error) return flashMessage(data.error, 'error');
+          flashMessage('Aprueba el cobro en tu app Daviplata.', 'success');
+        } catch (e) {
+          flashMessage(`Servidor no disponible en ${API_BASE}`, 'error');
+        }
+      });
+
+      document.getElementById('co-pse-btn').addEventListener('click', async () => {
+        const customerEmail = prompt('Correo del cliente:');
+        if (!customerEmail) return;
+        try {
+          const banksResp = await fetch(`${API_BASE}/co/pse/banks`);
+          const banks = await banksResp.json();
+          const bankList = (banks.data || []).map(b => `${b.financial_institution_code}: ${b.financial_institution_name}`).join('\n');
+          const financialInstitutionCode = prompt(`Código de banco:\n${bankList}`);
+          if (!financialInstitutionCode) return;
+          const resp = await fetch(`${API_BASE}/co/pse/pay`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              amountInCents: 1000000,
+              customerEmail,
+              financialInstitutionCode,
+              userType: '0',
+              userLegalIdType: 'CC',
+              userLegalId: '1000000000',
+              fullName: 'Cliente ProPay',
+              redirectUrl: window.location.href
+            })
+          });
+          const data = await resp.json();
+          if (data.error) return flashMessage(data.error, 'error');
+          if (data.data.payment_method?.extra?.async_payment_url) {
+            window.location = data.data.payment_method.extra.async_payment_url;
+          } else {
+            flashMessage('Transacción PSE creada: ' + data.data.status, 'success');
+          }
+        } catch (e) {
+          flashMessage(`Servidor no disponible en ${API_BASE}`, 'error');
+        }
+      });
 
       const observer = new MutationObserver(() => {
         if (modalRoot.classList.contains('hidden')) {

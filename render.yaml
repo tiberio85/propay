@@ -1,0 +1,32 @@
+services:
+  - type: web
+    name: propay
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: SUCCESS_URL
+        sync: false
+      - key: CANCEL_URL
+        sync: false
+      - key: WISE_API_TOKEN
+        sync: false
+      - key: WISE_PROFILE_ID
+        sync: false
+      - key: WOMPI_ENV
+        value: production
+      - key: WOMPI_PUBLIC_KEY
+        sync: false
+      - key: WOMPI_PRIVATE_KEY
+        sync: false
+      - key: WOMPI_EVENTS_SECRET
+        sync: false
+      - key: EPAYCO_PUBLIC_KEY
+        sync: false
+      - key: EPAYCO_PRIVATE_KEY
+        sync: false

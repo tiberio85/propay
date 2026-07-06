@@ -13,6 +13,8 @@ const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const bodyParser = require('body-parser');
 const cors = require('cors');
 const wise = require('./integrations/wise');
+const wompi = require('./integrations/wompi');
+const epayco = require('./integrations/epayco');
 
 const app = express();
 app.use(cors());
@@ -205,6 +207,105 @@ app.post('/wise-payout', async (req, res) => {
     console.error('wise-payout error', err);
     res.status(500).json({ error: err.message });
   }
+});
+
+// --- Colombia payment methods ---
+
+// Nequi push payment via Wompi. The customer approves the charge in their
+// Nequi app; poll GET /co/transaction/:id until status is APPROVED.
+// Request: { amountInCents, customerEmail, phoneNumber, reference }
+app.post('/co/nequi/pay', async (req, res) => {
+  const { amountInCents, customerEmail, phoneNumber, reference } = req.body;
+  if (!amountInCents || !customerEmail || !phoneNumber) return res.status(400).json({ error: 'missing params' });
+
+  try {
+    const transaction = await wompi.createNequiPayment({ amountInCents, customerEmail, phoneNumber, reference });
+    res.json(transaction);
+  } catch (err) {
+    console.error('co/nequi/pay error', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PSE bank transfer via Wompi (covers Colombian bank accounts). List banks
+// first with GET /co/pse/banks to get financialInstitutionCode.
+// Request: { amountInCents, customerEmail, redirectUrl, financialInstitutionCode, userType, userLegalIdType, userLegalId, fullName, reference }
+app.post('/co/pse/pay', async (req, res) => {
+  const { amountInCents, customerEmail, redirectUrl, financialInstitutionCode, userType, userLegalIdType, userLegalId, fullName, reference } = req.body;
+  if (!amountInCents || !customerEmail || !financialInstitutionCode || !redirectUrl) {
+    return res.status(400).json({ error: 'missing params' });
+  }
+
+  try {
+    const transaction = await wompi.createPSEPayment({
+      amountInCents, customerEmail, redirectUrl, financialInstitutionCode,
+      userType, userLegalIdType, userLegalId, fullName, reference
+    });
+    res.json(transaction);
+  } catch (err) {
+    console.error('co/pse/pay error', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/co/pse/banks', async (req, res) => {
+  try {
+    res.json(await wompi.listPSEBanks());
+  } catch (err) {
+    console.error('co/pse/banks error', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Bancolombia Transfer/QR via Wompi.
+// Request: { amountInCents, customerEmail, redirectUrl, reference }
+app.post('/co/bancolombia/pay', async (req, res) => {
+  const { amountInCents, customerEmail, redirectUrl, reference } = req.body;
+  if (!amountInCents || !customerEmail || !redirectUrl) return res.status(400).json({ error: 'missing params' });
+
+  try {
+    const transaction = await wompi.createBancolombiaTransfer({ amountInCents, customerEmail, redirectUrl, reference });
+    res.json(transaction);
+  } catch (err) {
+    console.error('co/bancolombia/pay error', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/co/transaction/:id', async (req, res) => {
+  try {
+    res.json(await wompi.getTransaction(req.params.id));
+  } catch (err) {
+    console.error('co/transaction error', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Daviplata push payment via ePayco (Wompi does not support Daviplata).
+// Request: { amount, docNumber, phone, invoice, description }
+app.post('/co/daviplata/pay', async (req, res) => {
+  const { amount, docNumber, phone, invoice, description } = req.body;
+  if (!amount || !docNumber || !phone) return res.status(400).json({ error: 'missing params' });
+
+  try {
+    const result = await epayco.createDaviplataPayment({ amount, docNumber, phone, invoice, description });
+    res.json(result);
+  } catch (err) {
+    console.error('co/daviplata/pay error', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Wompi webhook (transaction.updated events for Nequi/PSE/Bancolombia).
+app.post('/co/wompi/webhook', bodyParser.json(), (req, res) => {
+  const event = req.body;
+  if (!wompi.verifyWebhookSignature(event)) {
+    console.error('Invalid Wompi webhook signature');
+    return res.status(400).json({ error: 'invalid signature' });
+  }
+
+  console.log('Wompi event', event.event, event.data?.transaction?.id, event.data?.transaction?.status);
+  res.json({ received: true });
 });
 
 // Stripe webhook endpoint (requires raw body for signature verification)

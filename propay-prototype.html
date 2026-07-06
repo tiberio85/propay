@@ -1,0 +1,441 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>ProPay — Static Prototype</title>
+
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+
+    <!-- Tailwind CDN for quick prototype (no build step required) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              brand: {
+                50: '#f5f7ff',
+                500: '#4f46e5',
+                600: '#3730a3'
+              }
+            },
+            fontFamily: {
+              sans: ['Inter', 'ui-sans-serif', 'system-ui']
+            }
+          }
+        }
+      }
+    </script>
+
+    <style>
+      html,body,#root { height: 100%; }
+      body { font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; }
+      :focus { outline: 3px solid rgba(79,70,229,0.25); outline-offset: 2px; }
+    </style>
+  </head>
+
+  <body class="bg-gray-50 text-gray-800">
+    <div id="root" class="min-h-screen flex">
+
+      <div id="sidebar" class="fixed inset-y-0 left-0 z-40 w-64 transform -translate-x-full md:translate-x-0 transition-transform bg-white border-r shadow-lg">
+        <div class="p-6">
+          <h1 class="text-2xl font-bold text-brand-500">ProPay</h1>
+          <p class="text-sm text-gray-500 mt-1">Payments & invoicing</p>
+        </div>
+
+        <nav class="px-4">
+          <ul class="space-y-1">
+            <li><a class="block px-3 py-2 rounded text-gray-700 bg-gray-100" href="#" data-nav="dashboard">Dashboard</a></li>
+            <li><a class="block px-3 py-2 rounded text-gray-600 hover:bg-gray-50" href="#" data-nav="payments">Payments</a></li>
+            <li><a class="block px-3 py-2 rounded text-gray-600 hover:bg-gray-50" href="#" data-nav="invoices">Invoices</a></li>
+            <li><a class="block px-3 py-2 rounded text-gray-600 hover:bg-gray-50" href="#" data-nav="transactions">Transactions</a></li>
+            <li><a class="block px-3 py-2 rounded text-gray-600 hover:bg-gray-50" href="#" data-nav="settings">Settings</a></li>
+          </ul>
+        </nav>
+      </div>
+
+      <div class="flex-1 md:ml-64 flex flex-col">
+        <header class="bg-white border-b">
+          <div class="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <button id="mobile-menu-btn" aria-label="Open menu" class="md:hidden inline-flex items-center justify-center p-2 rounded hover:bg-gray-100">
+                <svg class="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+              </button>
+
+              <div>
+                <h2 class="text-lg font-semibold">Hello, Tiberio 👋</h2>
+                <p class="text-sm text-gray-500">Overview of your account</p>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-3">
+              <button id="stripe-pay-btn" class="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded shadow-sm">
+                Pay with Stripe
+              </button>
+
+              <button id="new-payment-btn" class="inline-flex items-center gap-2 px-4 py-2 bg-brand-500 text-white rounded shadow-sm">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                New Payment
+              </button>
+
+              <div class="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-sm font-medium">T</div>
+            </div>
+          </div>
+        </header>
+
+        <main class="p-6 max-w-7xl mx-auto">
+          <section class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+            <div class="p-5 bg-white rounded shadow-sm">
+              <div class="text-sm text-gray-500">Balance</div>
+              <div class="mt-2 text-2xl font-semibold" id="stat-balance">€ 12,430.50</div>
+              <div class="mt-2 text-sm text-gray-600">+3.2% this month</div>
+            </div>
+
+            <div class="p-5 bg-white rounded shadow-sm">
+              <div class="text-sm text-gray-500">Pending</div>
+              <div class="mt-2 text-2xl font-semibold" id="stat-pending">€ 1,200.00</div>
+              <div class="mt-2 text-sm text-gray-600">-0.5% this month</div>
+            </div>
+
+            <div class="p-5 bg-white rounded shadow-sm">
+              <div class="text-sm text-gray-500">Invoices</div>
+              <div class="mt-2 text-2xl font-semibold" id="stat-invoices">24</div>
+              <div class="mt-2 text-sm text-gray-600">+2 new</div>
+            </div>
+          </section>
+
+          <section class="mb-6">
+            <div class="flex items-center justify-between mb-4">
+              <h2 class="text-lg font-semibold">Recent Transactions</h2>
+              <div class="text-sm text-gray-600">Showing last 7 days</div>
+            </div>
+
+            <div id="transactions-card" class="bg-white shadow-sm rounded overflow-hidden">
+              <table class="min-w-full text-left">
+                <thead class="text-sm text-gray-500 border-b">
+                  <tr>
+                    <th class="px-4 py-3">Date</th>
+                    <th class="px-4 py-3">Description</th>
+                    <th class="px-4 py-3">Amount</th>
+                    <th class="px-4 py-3">Status</th>
+                  </tr>
+                </thead>
+                <tbody id="transactions-tbody" class="text-sm">
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="mb-6">
+            <h2 class="text-lg font-semibold mb-2">Pagos Colombia</h2>
+            <div class="bg-white shadow-sm rounded p-4 flex flex-wrap gap-3">
+              <button id="co-nequi-btn" class="px-4 py-2 rounded bg-fuchsia-600 text-white text-sm">Pagar con Nequi</button>
+              <button id="co-daviplata-btn" class="px-4 py-2 rounded bg-red-600 text-white text-sm">Pagar con Daviplata</button>
+              <button id="co-pse-btn" class="px-4 py-2 rounded bg-blue-700 text-white text-sm">Pagar con banco (PSE)</button>
+            </div>
+          </section>
+
+          <section>
+            <h2 class="text-lg font-semibold mb-2">Invoices</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div class="p-4 bg-white rounded shadow-sm">
+                <div class="text-sm text-gray-500">Invoice #1023</div>
+                <div class="font-medium mt-1">€ 480.00</div>
+                <div class="text-xs text-green-600 mt-2">Paid</div>
+              </div>
+
+              <div class="p-4 bg-white rounded shadow-sm">
+                <div class="text-sm text-gray-500">Invoice #1022</div>
+                <div class="font-medium mt-1">€ 1,200.00</div>
+                <div class="text-xs text-amber-600 mt-2">Due</div>
+              </div>
+
+              <div class="p-4 bg-white rounded shadow-sm">
+                <div class="text-sm text-gray-500">Invoice #1021</div>
+                <div class="font-medium mt-1">€ 320.00</div>
+                <div class="text-xs text-rose-600 mt-2">Overdue</div>
+              </div>
+            </div>
+          </section>
+        </main>
+      </div>
+
+      <div id="modal-root" class="fixed inset-0 z-50 hidden items-center justify-center">
+        <div id="modal-backdrop" class="absolute inset-0 bg-black opacity-40"></div>
+        <div role="dialog" aria-modal="true" class="bg-white rounded-lg shadow-lg z-50 w-full max-w-md mx-4 transform transition">
+          <div class="p-4 border-b flex items-center justify-between">
+            <h3 class="font-semibold">New Payment</h3>
+            <button id="modal-close" class="text-gray-500" aria-label="Close">✕</button>
+          </div>
+
+          <form id="payment-form" class="p-4" onsubmit="return false;">
+            <label class="block text-sm text-gray-700">Beneficiary</label>
+            <input id="input-beneficiary" class="w-full px-3 py-2 border rounded mt-1" placeholder="Name or IBAN" required />
+
+            <label class="block text-sm text-gray-700 mt-3">Amount</label>
+            <input id="input-amount" type="number" step="0.01" min="0" class="w-full px-3 py-2 border rounded mt-1" placeholder="e.g. 120.00" required />
+
+            <label class="block text-sm text-gray-700 mt-3">Note (optional)</label>
+            <input id="input-note" class="w-full px-3 py-2 border rounded mt-1" placeholder="Payment note" />
+
+            <div class="mt-4 flex justify-end gap-2">
+              <button type="button" id="cancel-btn" class="px-4 py-2 rounded border">Cancel</button>
+              <button type="submit" id="send-btn" class="px-4 py-2 rounded bg-brand-500 text-white">Send</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+    </div>
+
+    <script>
+      // Point this at your running server.js (see README.md).
+      const API_BASE = window.PROPAY_API_BASE || 'http://localhost:4242';
+
+      const DEFAULT_TRANSACTIONS = [
+        { id: 1, date: '2026-07-05', desc: 'ACME Corp — Invoice #1023', amount: '€480.00', status: 'paid' },
+        { id: 2, date: '2026-07-04', desc: 'Transfer to John', amount: '€120.00', status: 'sent' },
+        { id: 3, date: '2026-07-03', desc: 'Refund from Shop', amount: '€24.50', status: 'received' }
+      ];
+
+      function loadTransactions() {
+        try {
+          const raw = sessionStorage.getItem('propay_transactions');
+          if (!raw) {
+            sessionStorage.setItem('propay_transactions', JSON.stringify(DEFAULT_TRANSACTIONS));
+            return DEFAULT_TRANSACTIONS.slice();
+          }
+          return JSON.parse(raw);
+        } catch(e) {
+          return DEFAULT_TRANSACTIONS.slice();
+        }
+      }
+
+      function saveTransactions(list) {
+        sessionStorage.setItem('propay_transactions', JSON.stringify(list));
+      }
+
+      function formatCurrency(num) {
+        const n = Number(String(num).replace(',', '.'));
+        if (Number.isNaN(n)) return '€ 0.00';
+        return new Intl.NumberFormat('en-EN', { style: 'currency', currency: 'EUR' }).format(n);
+      }
+
+      const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+      const sidebar = document.getElementById('sidebar');
+      const modalRoot = document.getElementById('modal-root');
+      const newPaymentBtn = document.getElementById('new-payment-btn');
+      const stripePayBtn = document.getElementById('stripe-pay-btn');
+      const modalClose = document.getElementById('modal-close');
+      const cancelBtn = document.getElementById('cancel-btn');
+      const paymentForm = document.getElementById('payment-form');
+      const tb = document.getElementById('transactions-tbody');
+
+      mobileMenuBtn && mobileMenuBtn.addEventListener('click', () => {
+        const open = !sidebar.classList.contains('-translate-x-full');
+        if (open) {
+          sidebar.classList.add('-translate-x-full');
+          sidebar.setAttribute('aria-hidden', 'true');
+        } else {
+          sidebar.classList.remove('-translate-x-full');
+          sidebar.removeAttribute('aria-hidden');
+        }
+      });
+
+      function openModal() {
+        modalRoot.classList.remove('hidden');
+        setTimeout(() => document.getElementById('input-beneficiary').focus(), 50);
+        document.body.style.overflow = 'hidden';
+      }
+      function closeModal() {
+        modalRoot.classList.add('hidden');
+        document.body.style.overflow = '';
+      }
+
+      newPaymentBtn && newPaymentBtn.addEventListener('click', openModal);
+      modalClose && modalClose.addEventListener('click', closeModal);
+      cancelBtn && cancelBtn.addEventListener('click', closeModal);
+      document.getElementById('modal-backdrop').addEventListener('click', closeModal);
+
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') closeModal();
+      });
+
+      // Real Stripe Checkout: calls the server's /create-checkout-session
+      // endpoint (see server.js) and redirects to Stripe-hosted Checkout.
+      stripePayBtn && stripePayBtn.addEventListener('click', async () => {
+        stripePayBtn.disabled = true;
+        stripePayBtn.textContent = 'Redirecting…';
+        try {
+          const resp = await fetch(`${API_BASE}/create-checkout-session`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ amount: 1000, currency: 'eur' })
+          });
+          const data = await resp.json();
+          if (data.url) {
+            window.location = data.url;
+          } else {
+            flashMessage(data.error || 'Could not start checkout', 'error');
+          }
+        } catch (err) {
+          flashMessage(`Server unreachable at ${API_BASE}`, 'error');
+        } finally {
+          stripePayBtn.disabled = false;
+          stripePayBtn.textContent = 'Pay with Stripe';
+        }
+      });
+
+      function renderTransactions() {
+        const tx = loadTransactions();
+        tb.innerHTML = '';
+        tx.slice().reverse().forEach(r => {
+          const tr = document.createElement('tr');
+          tr.className = 'border-b last:border-b-0';
+          tr.innerHTML = `
+            <td class="px-4 py-3">${r.date}</td>
+            <td class="px-4 py-3">${r.desc}</td>
+            <td class="px-4 py-3">${r.amount}</td>
+            <td class="px-4 py-3"><span class="px-2 py-1 rounded text-xs ${r.status === 'paid' ? 'bg-green-100 text-green-800' : r.status === 'sent' ? 'bg-indigo-100 text-indigo-800' : 'bg-gray-100 text-gray-800'}">${r.status}</span></td>
+          `;
+          tb.appendChild(tr);
+        });
+
+        const total = tx.reduce((acc, t) => {
+          const val = Number(String(t.amount).replace(/[^0-9\.\-]/g, '')) || 0;
+          return acc + val;
+        }, 0);
+        document.getElementById('stat-balance').textContent = formatCurrency(total + 10000);
+        document.getElementById('stat-pending').textContent = formatCurrency(tx.filter(t => t.status === 'sent').reduce((s, r) => s + (Number(String(r.amount).replace(/[^0-9\.\-]/g, ''))||0), 0));
+        document.getElementById('stat-invoices').textContent = String(24);
+      }
+
+      paymentForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const ben = document.getElementById('input-beneficiary').value.trim();
+        const amtRaw = document.getElementById('input-amount').value.trim();
+        const note = document.getElementById('input-note').value.trim();
+        if (!ben || !amtRaw) {
+          flashMessage('Please fill beneficiary and amount.', 'error');
+          return;
+        }
+        const amt = Number(amtRaw);
+        if (!isFinite(amt) || amt <= 0) {
+          flashMessage('Enter a valid positive amount.', 'error');
+          return;
+        }
+
+        const tx = loadTransactions();
+        const newTx = {
+          id: Date.now(),
+          date: new Date().toISOString().slice(0,10),
+          desc: `${ben}${note ? ' — ' + note : ''}`,
+          amount: formatCurrency(amt),
+          status: 'sent'
+        };
+        tx.push(newTx);
+        saveTransactions(tx);
+        renderTransactions();
+
+        closeModal();
+        flashMessage(`Payment simulated: ${newTx.amount} to ${ben}`, 'success');
+      });
+
+      function flashMessage(text, type='info') {
+        const el = document.createElement('div');
+        el.className = 'fixed right-4 bottom-6 z-50 px-4 py-2 rounded shadow text-sm text-white ' + (type==='success' ? 'bg-green-600' : type==='error' ? 'bg-rose-600' : 'bg-indigo-600');
+        el.textContent = text;
+        document.body.appendChild(el);
+        setTimeout(() => {
+          el.style.transition = 'opacity 300ms';
+          el.style.opacity = '0';
+          setTimeout(() => el.remove(), 350);
+        }, 1800);
+      }
+
+      renderTransactions();
+
+      // --- Colombia payment methods (Nequi, Daviplata, PSE) ---
+      document.getElementById('co-nequi-btn').addEventListener('click', async () => {
+        const phoneNumber = prompt('Número de celular Nequi (10 dígitos):');
+        if (!phoneNumber) return;
+        const customerEmail = prompt('Correo del cliente:');
+        if (!customerEmail) return;
+        try {
+          const resp = await fetch(`${API_BASE}/co/nequi/pay`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ amountInCents: 1000000, customerEmail, phoneNumber })
+          });
+          const data = await resp.json();
+          if (data.error) return flashMessage(data.error, 'error');
+          flashMessage('Aprueba el cobro en tu app Nequi. Estado: ' + data.data.status, 'success');
+        } catch (e) {
+          flashMessage(`Servidor no disponible en ${API_BASE}`, 'error');
+        }
+      });
+
+      document.getElementById('co-daviplata-btn').addEventListener('click', async () => {
+        const docNumber = prompt('Número de cédula:');
+        if (!docNumber) return;
+        const phone = prompt('Número de celular Daviplata:');
+        if (!phone) return;
+        try {
+          const resp = await fetch(`${API_BASE}/co/daviplata/pay`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ amount: 10000, docNumber, phone })
+          });
+          const data = await resp.json();
+          if (data.error) return flashMessage(data.error, 'error');
+          flashMessage('Aprueba el cobro en tu app Daviplata.', 'success');
+        } catch (e) {
+          flashMessage(`Servidor no disponible en ${API_BASE}`, 'error');
+        }
+      });
+
+      document.getElementById('co-pse-btn').addEventListener('click', async () => {
+        const customerEmail = prompt('Correo del cliente:');
+        if (!customerEmail) return;
+        try {
+          const banksResp = await fetch(`${API_BASE}/co/pse/banks`);
+          const banks = await banksResp.json();
+          const bankList = (banks.data || []).map(b => `${b.financial_institution_code}: ${b.financial_institution_name}`).join('\n');
+          const financialInstitutionCode = prompt(`Código de banco:\n${bankList}`);
+          if (!financialInstitutionCode) return;
+          const resp = await fetch(`${API_BASE}/co/pse/pay`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              amountInCents: 1000000,
+              customerEmail,
+              financialInstitutionCode,
+              userType: '0',
+              userLegalIdType: 'CC',
+              userLegalId: '1000000000',
+              fullName: 'Cliente ProPay',
+              redirectUrl: window.location.href
+            })
+          });
+          const data = await resp.json();
+          if (data.error) return flashMessage(data.error, 'error');
+          if (data.data.payment_method?.extra?.async_payment_url) {
+            window.location = data.data.payment_method.extra.async_payment_url;
+          } else {
+            flashMessage('Transacción PSE creada: ' + data.data.status, 'success');
+          }
+        } catch (e) {
+          flashMessage(`Servidor no disponible en ${API_BASE}`, 'error');
+        }
+      });
+
+      const observer = new MutationObserver(() => {
+        if (modalRoot.classList.contains('hidden')) {
+          newPaymentBtn.focus();
+        }
+      });
+      observer.observe(modalRoot, { attributes: true, attributeFilter: ['class'] });
+    </script>
+  </body>
+</html>

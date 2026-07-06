@@ -12,6 +12,7 @@ const express = require('express');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const bodyParser = require('body-parser');
 const cors = require('cors');
+const wise = require('./integrations/wise');
 
 const app = express();
 app.use(cors());
@@ -110,6 +111,98 @@ app.post('/transfer-to-connected', async (req, res) => {
     res.json({ transfer });
   } catch (err) {
     console.error('transfer-to-connected error', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ACH: create a PaymentIntent for a US bank account debit.
+// Client must first collect the bank account via Stripe Financial Connections
+// or Plaid and obtain a payment_method id (pm_...) before calling this.
+// Request: { amount, currency: 'usd', paymentMethodId, customerId }
+app.post('/create-ach-payment-intent', async (req, res) => {
+  const { amount, currency = 'usd', paymentMethodId, customerId } = req.body;
+  if (!amount || !paymentMethodId) return res.status(400).json({ error: 'missing params' });
+
+  try {
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount,
+      currency,
+      customer: customerId,
+      payment_method: paymentMethodId,
+      payment_method_types: ['us_bank_account'],
+      confirm: true,
+      mandate_data: {
+        customer_acceptance: {
+          type: 'online',
+          online: { ip_address: req.ip, user_agent: req.headers['user-agent'] }
+        }
+      }
+    });
+
+    res.json({ paymentIntent });
+  } catch (err) {
+    console.error('create-ach-payment-intent error', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// SEPA: create a SetupIntent to collect a SEPA Direct Debit mandate.
+// Request: { customerId }
+app.post('/create-sepa-setup-intent', async (req, res) => {
+  const { customerId } = req.body;
+  try {
+    const setupIntent = await stripe.setupIntents.create({
+      customer: customerId,
+      payment_method_types: ['sepa_debit']
+    });
+
+    res.json({ setupIntent });
+  } catch (err) {
+    console.error('create-sepa-setup-intent error', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// SEPA: charge a previously mandated payment method off-session.
+// Request: { amount, currency: 'eur', customerId, paymentMethodId }
+app.post('/charge-sepa-mandate', async (req, res) => {
+  const { amount, currency = 'eur', customerId, paymentMethodId } = req.body;
+  if (!amount || !customerId || !paymentMethodId) return res.status(400).json({ error: 'missing params' });
+
+  try {
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount,
+      currency,
+      customer: customerId,
+      payment_method: paymentMethodId,
+      payment_method_types: ['sepa_debit'],
+      off_session: true,
+      confirm: true
+    });
+
+    res.json({ paymentIntent });
+  } catch (err) {
+    console.error('charge-sepa-mandate error', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Wise payout: send collected funds to a beneficiary bank account (e.g. Panama),
+// since Stripe Connect does not support Panama as a connected-account country.
+// Request: { targetCurrency, sourceAmount, sourceCurrency, accountHolderName, details, recipientType }
+app.post('/wise-payout', async (req, res) => {
+  const { targetCurrency, sourceAmount, sourceCurrency = 'EUR', accountHolderName, details, recipientType } = req.body;
+  if (!targetCurrency || !sourceAmount || !accountHolderName || !details) {
+    return res.status(400).json({ error: 'missing params' });
+  }
+
+  try {
+    const result = await wise.payoutToRecipient({
+      targetCurrency, sourceAmount, sourceCurrency, accountHolderName, details, recipientType
+    });
+    res.json(result);
+  } catch (err) {
+    console.error('wise-payout error', err);
     res.status(500).json({ error: err.message });
   }
 });
